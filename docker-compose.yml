@@ -1,0 +1,70 @@
+services:
+  blockchain:
+    build:
+      context: ./contracts-project
+    command: ["npx", "hardhat", "node", "--hostname", "0.0.0.0"]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:'{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}'}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  deploy:
+    build:
+      context: ./contracts-project
+    depends_on:
+      blockchain:
+        condition: service_healthy
+    environment:
+      HARDHAT_NETWORK: localhost
+      RPC_URL: http://blockchain:8545
+      DEPLOYMENT_OUTPUT_PATH: /shared/contract.json
+    volumes:
+      - deployment:/shared
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["npm run compile && npm run deploy:local && npm run seed:local"]
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      deploy:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3000
+      RPC_URL: http://blockchain:8545
+      PUBLIC_URL: http://localhost:3000
+      CONTRACT_FILE_PATH: /deployment/contract.json
+      JWT_SECRET: ${JWT_SECRET}
+      ORG_PRODUCER_PRIVATE_KEY: ${ORG_PRODUCER_PRIVATE_KEY}
+      ORG_PROCESSOR_PRIVATE_KEY: ${ORG_PROCESSOR_PRIVATE_KEY}
+      ORG_TRANSPORTER_PRIVATE_KEY: ${ORG_TRANSPORTER_PRIVATE_KEY}
+      ORG_WAREHOUSE_PRIVATE_KEY: ${ORG_WAREHOUSE_PRIVATE_KEY}
+      ORG_RETAILER_PRIVATE_KEY: ${ORG_RETAILER_PRIVATE_KEY}
+      ORG_AUDITOR_PRIVATE_KEY: ${ORG_AUDITOR_PRIVATE_KEY}
+    volumes:
+      - deployment:/deployment:ro
+      - uploads:/app/uploads
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  deployment:
+  uploads:

@@ -2,7 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const { ethers } = require("hardhat");
 
-const backendContractPath = path.resolve(__dirname, "../../backend/contract.json");
+const backendContractPath = process.env.DEPLOYMENT_OUTPUT_PATH
+  ? path.resolve(process.env.DEPLOYMENT_OUTPUT_PATH)
+  : path.resolve(__dirname, "../../backend/contract.json");
 
 async function main() {
   const [

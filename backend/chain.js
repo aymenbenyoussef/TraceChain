@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { ethers } = require("ethers");
 
-const deploymentPath = path.join(__dirname, "contract.json");
+const deploymentPath = process.env.CONTRACT_FILE_PATH || path.join(__dirname, "contract.json");
 if (!fs.existsSync(deploymentPath)) {
   throw new Error(`Missing deployment file: ${deploymentPath}`);
 }
